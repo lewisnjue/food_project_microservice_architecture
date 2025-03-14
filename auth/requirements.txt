@@ -3,3 +3,6 @@ uvicorn
 sqlmodel
 pydantic[email]
 bcrypt
+pyjwt
+pydantic-settings 
+
