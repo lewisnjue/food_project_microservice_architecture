@@ -5,4 +5,4 @@ pydantic[email]
 bcrypt
 pyjwt
 pydantic-settings 
-
+psycopg2-binary
