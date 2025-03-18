@@ -1,5 +1,7 @@
-from fastapi import FastAPI, Request,HTTPException,status
+from fastapi import Depends, FastAPI, Request,HTTPException,status
 from sqlalchemy.engine import create
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import raiseload, session
 from sqlmodel import Session,SQLModel, except_
 from users import engine 
 from users.token_schema import _token
@@ -10,6 +12,7 @@ from users._token_create import create_access_token
 from users.query import check_user
 from config import get_settings
 from users.validators import validate_token
+from contextlib import contextmanager # this is for yielding session 
 db_engine = engine._engine() 
 
 settings =  get_settings()
@@ -17,16 +20,27 @@ settings =  get_settings()
 
 app = FastAPI() 
 
-DB_SESSION = None 
+
+def get_db_session():
+    with Session(db_engine) as session:
+        try:
+            yield session
+            session.commit()
+        except SQLAlchemyError as e:
+            session.rollback() 
+            print(f"session rollback because of error: {e}")
+            raise 
+        finally:
+            session.close() 
+
+
+
 @app.on_event("startup")
 def on_startup():
 
     SQLModel.metadata.create_all(db_engine)
 
-    global DB_SESSION
-    DB_SESSION = Session(db_engine)
     
-
 
 @app.get("/")
 async def home():
@@ -34,17 +48,17 @@ async def home():
 
 
 @app.post("/signup")
-async def _signup(request: Request,data:sign_up):
-    message, err = handle_signup(data,DB_SESSION)
+async def _signup(request: Request,data:sign_up,session:Session = Depends(get_db_session)):
+    message, err = handle_signup(data,session)
     if message:
         return{"message":message}
     else:
         return {"error":err}
-    
+
 @app.post("/token")
-async def _token(request:Request,data:_token):
+async def _token(request:Request,data:_token,session:Session = Depends(get_db_session)):
     _data  = data
-    id, err = check_user(db_session=DB_SESSION,email=_data.email,raw_password=_data.password)
+    id, err = check_user(db_session=session,email=_data.email,raw_password=_data.password)
     if err:
         return {"error":err}
     
