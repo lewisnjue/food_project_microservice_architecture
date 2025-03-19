@@ -7,7 +7,7 @@ manifest/
 manifest
 # C extensions
 *.so
-
+/workspace/food_project_microservice_architecture/model/food_model.onnx
 # Distribution / packaging
 .Python
 build/
